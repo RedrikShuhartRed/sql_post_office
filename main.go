@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -43,7 +44,7 @@ func (s ParcelService) Register(client int, address string) (Parcel, error) {
 		return parcel, err
 	}
 
-	parcel.Number = id
+	parcel.Number = int(id)
 
 	fmt.Printf("Новая посылка № %d на адрес %s от клиента с идентификатором %d зарегистрирована %s\n",
 		parcel.Number, parcel.Address, parcel.Client, parcel.CreatedAt)
@@ -89,18 +90,33 @@ func (s ParcelService) NextStatus(number int) error {
 }
 
 func (s ParcelService) ChangeAddress(number int, address string) error {
+
 	return s.store.SetAddress(number, address)
 }
 
 func (s ParcelService) Delete(number int) error {
+
 	return s.store.Delete(number)
+
 }
 
 func main() {
-	// настройте подключение к БД
+	CreateLogFile()
 
-	store := // создайте объект ParcelStore функцией NewParcelStore
+	// настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db")
+	if err != nil {
+		log.Printf("Error open database:\n%v", err)
+		return
+
+	}
+	defer db.Close()
+
+	store := NewParcelStore(db) // создайте объект ParcelStore функцией NewParcelStore
 	service := NewParcelService(store)
+
+	//Чистим БД для удобства
+	ClearDB(store)
 
 	// регистрация посылки
 	client := 1
@@ -140,6 +156,13 @@ func main() {
 		return
 	}
 
+	// изменение статуса
+	err = service.NextStatus(p.Number)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	// вывод посылок клиента
 	// предыдущая посылка не должна удалиться, т.к. её статус НЕ «зарегистрирована»
 	err = service.PrintClientParcels(client)
@@ -169,4 +192,5 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
 }
