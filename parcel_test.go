@@ -37,10 +37,7 @@ func OpenDataBase() (*sql.DB, error) {
 func TestAddGetDelete(t *testing.T) {
 	// prepare
 	db, err := OpenDataBase() // настройте подключение к БД
-
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
@@ -72,10 +69,7 @@ func TestAddGetDelete(t *testing.T) {
 func TestSetAddress(t *testing.T) {
 	// prepare
 	db, err := OpenDataBase() // настройте подключение к БД
-
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	store := NewParcelStore(db)
@@ -105,10 +99,7 @@ func TestSetAddress(t *testing.T) {
 func TestSetStatus(t *testing.T) {
 	// prepare
 	db, err := OpenDataBase() // настройте подключение к БД
-
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	store := NewParcelStore(db)
@@ -138,10 +129,7 @@ func TestSetStatus(t *testing.T) {
 func TestGetByClient(t *testing.T) {
 	// prepare
 	db, err := OpenDataBase() // настройте подключение к БД
-
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	defer db.Close()
 
 	store := NewParcelStore(db)
@@ -176,27 +164,39 @@ func TestGetByClient(t *testing.T) {
 	// убедитесь в отсутствии ошибки
 	require.NoError(t, err)
 	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
-	require.Equal(t, len(storedParcels), len(parcels))
+	require.Equal(t, len(parcels), len(storedParcels))
 	// check
 	for _, parcel := range storedParcels {
+		_, ok := parcelMap[parcel.Number]
 		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
 		// убедитесь, что все посылки из storedParcels есть в parcelMap
+		require.True(t, ok)
 		// убедитесь, что значения полей полученных посылок заполнены верно
 		require.Equal(t, parcel, parcelMap[parcel.Number])
 	}
 }
 
 func TestClearDB(t *testing.T) {
-	db, err := OpenDataBase()
-
-	if err != nil {
-		require.NoError(t, err)
-	}
+	db, err := OpenDataBase() // настройте подключение к БД
+	require.NoError(t, err)
 	defer db.Close()
+
+	// Создаем БД и добавляем в неё посылку
+
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
+	p, err := store.Add(parcel)
+	parcel.Number = p
+	require.NoError(t, err)
+	require.NotEmpty(t, p)
+
+	// Очистка базы данных
 	err = ClearDB(store)
 	require.NoError(t, err)
-	require.Empty(t, parcel.Number)
+
+	// Проверяем что БД пустая, попытка получить посылку выдаст ошибку т.к. БД пустая
+	parcels, err := store.Get(parcel.Number)
+	require.Error(t, err)
+	require.Empty(t, parcels)
 
 }

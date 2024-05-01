@@ -4,21 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
 	_ "modernc.org/sqlite"
 )
-
-func CreateLogFile() {
-	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err == nil {
-		log.SetOutput(file)
-	} else {
-		log.SetOutput(os.Stdout)
-	}
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-
-}
 
 type ParcelStore struct {
 	db *sql.DB
@@ -30,21 +18,21 @@ func NewParcelStore(db *sql.DB) ParcelStore {
 
 func (s ParcelStore) Add(p Parcel) (int, error) {
 	// реализуйте добавление строки в таблицу parcel, используйте данные из переменной p
-	res, err := s.db.Exec("INSERT INTO parcel (client, status, address, created_at) VALUES (:client, :status, :adress, :created_at)",
+	res, err := s.db.Exec("INSERT INTO parcel (client, status, address, created_at) VALUES (:client, :status, :address, :created_at)",
 		sql.Named("client", p.Client),
 		sql.Named("status", p.Status),
-		sql.Named("adress", p.Address),
+		sql.Named("address", p.Address),
 		sql.Named("created_at", p.CreatedAt))
 	if err != nil {
-		log.Println("Error adding new parcel:", err)
-		return 0, err
+
+		return 0, fmt.Errorf("error adding new parcel: %w", err)
 	}
 
 	// верните идентификатор последней добавленной записи
 	lastId, err := (res.LastInsertId())
 	if err != nil {
-		log.Println("Error add new parcel:", err)
-		return 0, err
+
+		return 0, fmt.Errorf("error adding new parcel: %w", err)
 	}
 	return int(lastId), nil
 }
@@ -110,37 +98,31 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
-	parsel, err := s.Get(number)
-	if parsel.Status == ParcelStatusRegistered {
-		_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",
-			sql.Named("address", address),
-			sql.Named("number", number))
-		if err != nil {
-			log.Printf("Error update parcel address: parcel number %d\n%v", number, err)
-			return err
-		}
-		fmt.Printf("У посылки № %d новый адрес: %s\n", number, address)
-		return nil
+	_, err := s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number AND status = :status",
+		sql.Named("address", address),
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
+	if err != nil {
+		log.Printf("Error update parcel address: parcel number %d\n%v", number, err)
+		return err
 	}
-	fmt.Printf("Невозможно изменить адрес посылки № %d, статус посылки: %s.\n", parsel.Number, parsel.Status)
-	return err
+
+	return nil
 }
 
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
-	parsel, err := s.Get(number)
-	if parsel.Status == ParcelStatusRegistered {
-		_, err = s.db.Exec("DELETE FROM parcel WHERE number = :number", sql.Named("number", number))
-		if err != nil {
-			log.Printf("Error delete parcel: parcel number %d\n%v", number, err)
-			return err
-		}
-		fmt.Printf("Посылка № %d успешно удалена.\n", parsel.Number)
-		return nil
+
+	_, err := s.db.Exec("DELETE FROM parcel WHERE number = :number AND status = :status",
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
+	if err != nil {
+		log.Printf("Error delete parcel: parcel number %d\n%v", number, err)
+		return err
 	}
-	fmt.Printf("Невозможно удалить посылку № %d, статус посылки: %s.\n", parsel.Number, parsel.Status)
-	return err
+
+	return nil
 }
 
 // Чистим БД
