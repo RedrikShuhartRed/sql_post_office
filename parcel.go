@@ -45,9 +45,13 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 	p := Parcel{}
 	row := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = :number", sql.Named("number", number))
 	err := row.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
-	if err != nil {
+
+	if err == sql.ErrNoRows {
+		return p, err
+	} else if err != nil {
 		log.Printf("Error get parcel by number: parcel number %d\n%v", number, err)
 		return p, err
+
 	}
 
 	return p, nil
@@ -137,5 +141,6 @@ func ClearDB(s ParcelStore) error {
 		log.Printf("Error clear database: %v", err)
 		return err
 	}
+
 	return nil
 }

@@ -62,7 +62,8 @@ func TestAddGetDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = store.Get(parcel.Number)
-	require.Error(t, err)
+	require.Equal(t, sql.ErrNoRows, err)
+	//require.Error(t, err)
 }
 
 // TestSetAddress проверяет обновление адреса
@@ -177,26 +178,27 @@ func TestGetByClient(t *testing.T) {
 }
 
 func TestClearDB(t *testing.T) {
-	db, err := OpenDataBase() // настройте подключение к БД
+	db, err := OpenDataBase()
 	require.NoError(t, err)
 	defer db.Close()
 
-	// Создаем БД и добавляем в неё посылку
-
 	store := NewParcelStore(db)
-	parcel := getTestParcel()
-	p, err := store.Add(parcel)
-	parcel.Number = p
-	require.NoError(t, err)
-	require.NotEmpty(t, p)
-
-	// Очистка базы данных
 	err = ClearDB(store)
 	require.NoError(t, err)
 
-	// Проверяем что БД пустая, попытка получить посылку выдаст ошибку т.к. БД пустая
-	parcels, err := store.Get(parcel.Number)
-	require.Error(t, err)
-	require.Empty(t, parcels)
+	row, err := store.db.Query("SELECT count(*) FROM parcel")
+	require.NoError(t, err)
+
+	defer row.Close()
+
+	for row.Next() {
+		var count int
+		err := row.Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+		err = row.Err()
+		require.NoError(t, err)
+
+	}
 
 }
